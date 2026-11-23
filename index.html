@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Конвертер фото в PDF</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .dropzone-active {
+      border-color: #4f46e5 !important;
+      background-color: #eef2ff !important;
+      transform: scale(1.005);
+    }
+
+    .photo-card {
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .photo-card.dragging {
+      opacity: 0.45;
+      transform: scale(0.97);
+    }
+
+    .photo-card.drag-over {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+    }
+
+    .photo-card.selected-card {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.22);
+    }
+
+    .preview-sheet {
+      background: #ffffff;
+      box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e2e8f0;
+      transition: width 0.2s ease, height 0.2s ease;
+    }
+
+    /* Custom range slider */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e2e8f0;
+      height: 6px;
+      border-radius: 9999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      background: #4f46e5;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 9999px;
+      background: #4f46e5;
+      cursor: pointer;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+    }
+
+    .toast-enter {
+      animation: toastIn 0.22s ease forwards;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 truncate">Конвертер фото в PDF</h1>
+          <p class="text-xs text-slate-500 hidden sm:block">Работает локально в браузере — фото никуда не загружаются</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btnLoadDemo" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          <span>Демо-фото</span>
+        </button>
+        <button id="btnHeaderAdd" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          <span>Добавить фото</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hidden file input -->
+  <input id="fileInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/*" multiple class="hidden" />
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Left Column: Upload, Queue & Live Preview -->
+      <div class="lg:col-span-8 space-y-6">
+
+        <!-- Dropzone -->
+        <section id="dropzone" tabindex="0" role="button" aria-label="Загрузить фотографии" class="group relative bg-white border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <div class="mx-auto w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <h2 class="text-base sm:text-lg font-semibold text-slate-900">Перетащите фотографии сюда или нажмите для выбора</h2>
+          <p class="mt-1.5 text-sm text-slate-500">Поддерживаются JPG, PNG, WebP, GIF, BMP • Можно вставить из буфера обмена (Ctrl+V)</p>
+          <div class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+              Без ограничений по числу страниц
+            </span>
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+              100% конфиденциально
+            </span>
+          </div>
+        </section>
+
+        <!-- Queue Toolbar & Tabs (Visible when photos exist) -->
+        <section id="workspaceSection" class="hidden space-y-4">
+          <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-slate-900">Страницы документа</span>
+                <span id="photoCountBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">0</span>
+                <span id="totalSizeBadge" class="text-xs text-slate-500 hidden sm:inline"></span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-1.5">
+                <!-- View Mode Toggle -->
+                <div class="inline-flex rounded-lg bg-slate-100 p-0.5 mr-1">
+                  <button id="tabGrid" type="button" class="px-2.5 py-1 text-xs font-medium rounded-md bg-white text-slate-900 shadow-sm transition-all">Сетка</button>
+                  <button id="tabPreview" type="button" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all">Предпросмотр PDF</button>
+                </div>
+
+                <button id="btnSortAsc" type="button" title="Сортировать по имени А → Я" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                  <span>А→Я</span>
+                </button>
+                <button id="btnReverseOrder" type="button" title="Перевернуть порядок" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>
+                  <span class="hidden sm:inline">Обратный</span>
+                </button>
+                <button id="btnRotateAll" type="button" title="Повернуть все на 90°" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                  <span class="hidden sm:inline">Все 90°</span>
+                </button>
+                <button id="btnClearAll" type="button" title="Удалить все фото" class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  <span>Очистить</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Grid View -->
+            <div id="gridView" class="pt-4">
+              <p class="text-xs text-slate-500 mb-3 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+                Перетаскивайте карточки, чтобы изменить порядок страниц, или используйте стрелки.
+              </p>
+              <div id="photoGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3.5"></div>
+            </div>
+
+            <!-- Live PDF Page Preview View -->
+            <div id="previewView" class="hidden pt-4">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div class="flex items-center gap-2">
+                  <button id="btnPrevPreview" type="button" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors" aria-label="Предыдущая страница">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+                  </button>
+                  <span id="previewPageLabel" class="text-sm font-medium text-slate-700">Страница 1 из 1</span>
+                  <button id="btnNextPreview" type="button" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 disabled:opacity-40 transition-colors" aria-label="Следующая страница">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                  </button>
+                </div>
+                <span id="previewDimInfo" class="text-xs text-slate-500 font-medium"></span>
+              </div>
+
+              <div class="bg-slate-100 rounded-xl p-4 sm:p-6 flex items-center justify-center min-h-[380px] overflow-hidden">
+                <canvas id="previewCanvas" class="preview-sheet max-w-full h-auto rounded-sm"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Empty State Hint -->
+        <section id="emptyHint" class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-900">Хотите сразу проверить работу?</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Нажмите «Демо-фото», чтобы загрузить 3 тестовых изображения (документ, чек и фото) и попробовать настройки PDF.</p>
+            </div>
+          </div>
+          <button id="btnLoadDemoInline" type="button" class="px-3.5 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg shrink-0 transition-colors">
+            Загрузить демо-фото
+          </button>
+        </section>
+      </div>
+
+      <!-- Right Column: PDF Settings Panel -->
+      <aside class="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm lg:sticky lg:top-22 space-y-5">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 class="text-base font-bold text-slate-900">Настройки PDF</h2>
+          <button id="btnResetSettings" type="button" class="text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors">Сбросить</button>
+        </div>
+
+        <!-- Filename -->
+        <div>
+          <label for="pdfFilename" class="block text-xs font-semibold text-slate-700 mb-1.5">Имя файла</label>
+          <div class="flex items-center rounded-xl border border-slate-300 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 bg-white overflow-hidden">
+            <input id="pdfFilename" type="text" value="document" placeholder="document" class="w-full px-3 py-2 text-sm text-slate-900 focus:outline-none" />
+            <span class="px-3 py-2 text-xs font-semibold text-slate-500 bg-slate-50 border-l border-slate-200">.pdf</span>
+          </div>
+        </div>
+
+        <!-- Page Format -->
+        <div>
+          <label for="pageSize" class="block text-xs font-semibold text-slate-700 mb-1.5">Формат страницы</label>
+          <select id="pageSize" class="w-full px-3 py-2 text-sm text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+            <option value="a4" selected>A4 (210 × 297 мм)</option>
+            <option value="a5">A5 (148 × 210 мм)</option>
+            <option value="letter">Letter (216 × 279 мм)</option>
+            <option value="auto">По размеру фото (без рамок)</option>
+          </select>
+        </div>
+
+        <!-- Orientation -->
+        <div id="orientationGroup">
+          <span class="block text-xs font-semibold text-slate-700 mb-1.5">Ориентация</span>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-orientation="auto" class="orientation-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-indigo-600 bg-indigo-50 text-indigo-700 transition-colors">Авто</button>
+            <button type="button" data-orientation="portrait" class="orientation-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">Книжная</button>
+            <button type="button" data-orientation="landscape" class="orientation-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">Альбомная</button>
+          </div>
+        </div>
+
+        <!-- Margins -->
+        <div id="marginGroup">
+          <span class="block text-xs font-semibold text-slate-700 mb-1.5">Поля страницы</span>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" data-margin="0" class="margin-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">Нет (0 мм)</button>
+            <button type="button" data-margin="10" class="margin-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-indigo-600 bg-indigo-50 text-indigo-700 transition-colors">10 мм</button>
+            <button type="button" data-margin="20" class="margin-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">20 мм</button>
+          </div>
+        </div>
+
+        <!-- Fit Mode -->
+        <div id="fitGroup">
+          <span class="block text-xs font-semibold text-slate-700 mb-1.5">Размещение фото</span>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button type="button" data-fit="contain" class="fit-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-indigo-600 bg-indigo-50 text-indigo-700 transition-colors">Вписать целиком</button>
+            <button type="button" data-fit="cover" class="fit-btn px-2.5 py-2 text-xs font-medium rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors">Заполнить лист</button>
+          </div>
+        </div>
+
+        <!-- Quality Slider -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="qualityRange" class="text-xs font-semibold text-slate-700">Качество сжатия</label>
+            <span id="qualityLabel" class="text-xs font-semibold text-indigo-600">88% • Высокое</span>
+          </div>
+          <input id="qualityRange" type="range" min="40" max="100" step="2" value="88" class="w-full" />
+          <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+            <span>Компактнее</span>
+            <span>Максимум</span>
+          </div>
+        </div>
+
+        <!-- Extra Toggles -->
+        <div class="space-y-2.5 pt-1 border-t border-slate-100">
+          <label class="flex items-center justify-between cursor-pointer select-none py-1">
+            <span class="text-xs font-medium text-slate-700">Нумерация страниц</span>
+            <input id="togglePageNumbers" type="checkbox" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+          </label>
+          <label class="flex items-center justify-between cursor-pointer select-none py-1">
+            <span class="text-xs font-medium text-slate-700">Чёрно-белый режим (как скан)</span>
+            <input id="toggleGrayscale" type="checkbox" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+          </label>
+        </div>
+
+        <!-- Progress Bar (hidden until converting) -->
+        <div id="progressContainer" class="hidden space-y-1.5">
+          <div class="flex justify-between text-xs font-medium text-slate-600">
+            <span id="progressText">Обработка страниц...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div id="progressBar" class="h-full bg-indigo-600 rounded-full transition-all duration-150" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Primary Convert Button -->
+        <div class="pt-1 space-y-2">
+          <button id="btnConvert" type="button" disabled class="w-full py-3 px-4 rounded-xl text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            <span id="btnConvertText">Создать и скачать PDF</span>
+          </button>
+
+          <button id="btnRedownload" type="button" class="hidden w-full py-2.5 px-4 rounded-xl text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center justify-center gap-1.5 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span id="btnRedownloadText">Скачать готовый PDF ещё раз</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Lightbox Modal for Full Photo View -->
+  <div id="lightboxModal" class="hidden fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <div class="min-w-0">
+          <h3 id="lightboxTitle" class="text-sm font-semibold text-slate-900 truncate">Просмотр фото</h3>
+          <p id="lightboxMeta" class="text-xs text-slate-500"></p>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="btnLightboxRotate" type="button" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Повернуть 90°</button>
+          <button id="btnLightboxClose" type="button" class="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors" aria-label="Закрыть">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 bg-slate-100 p-4 flex items-center justify-center overflow-auto min-h-[300px]">
+        <img id="lightboxImg" src="" alt="Просмотр изображения" class="max-w-full max-h-[68vh] object-contain rounded shadow-sm transition-transform duration-200" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal (for Clear All) -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Удалить все фотографии?</h3>
+          <p class="text-xs text-slate-500 mt-1">Текущий список страниц будет очищен. Это действие нельзя отменить.</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button id="btnCancelClear" type="button" class="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Отмена</button>
+        <button id="btnConfirmClear" type="button" class="px-3.5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors">Удалить все</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] pointer-events-none"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // Page sizes in millimeters (portrait)
+      const PAGE_SIZES_MM = {
+        a4: { w: 210, h: 297, label: 'A4' },
+        a5: { w: 148, h: 210, label: 'A5' },
+        letter: { w: 215.9, h: 279.4, label: 'Letter' }
+      };
+
+      const DEFAULT_SETTINGS = {
+        filename: 'document',
+        pageSize: 'a4',
+        orientation: 'auto',
+        margin: 10,
+        fit: 'contain',
+        quality: 88,
+        pageNumbers: false,
+        grayscale: false
+      };
+
+      const state = {
+        photos: [], // { id, name, size, width, height, url, rotation }
+        selectedIndex: 0,
+        activeTab: 'grid', // 'grid' | 'preview'
+        settings: Object.assign({}, DEFAULT_SETTINGS),
+        isConverting: false,
+        draggedId: null,
+        lightboxId: null,
+        lastPdfBlobUrl: null,
+        lastPdfFilename: null
+      };
+
+      // DOM elements
+      const el = {
+        fileInput: document.getElementById('fileInput'),
+        dropzone: document.getElementById('dropzone'),
+        btnHeaderAdd: document.getElementById('btnHeaderAdd'),
+        btnLoadDemo: document.getElementById('btnLoadDemo'),
+        btnLoadDemoInline: document.getElementById('btnLoadDemoInline'),
+        workspaceSection: document.getElementById('workspaceSection'),
+        emptyHint: document.getElementById('emptyHint'),
+        photoCountBadge: document.getElementById('photoCountBadge'),
+        totalSizeBadge: document.getElementById('totalSizeBadge'),
+        tabGrid: document.getElementById('tabGrid'),
+        tabPreview: document.getElementById('tabPreview'),
+        gridView: document.getElementById('gridView'),
+        previewView: document.getElementById('previewView'),
+        photoGrid: document.getElementById('photoGrid'),
+        btnSortAsc: document.getElementById('btnSortAsc'),
+        btnReverseOrder: document.getElementById('btnReverseOrder'),
+        btnRotateAll: document.getElementById('btnRotateAll'),
+        btnClearAll: document.getElementById('btnClearAll'),
+        btnPrevPreview: document.getElementById('btnPrevPreview'),
+        btnNextPreview: document.getElementById('btnNextPreview'),
+        previewPageLabel: document.getElementById('previewPageLabel'),
+        previewDimInfo: document.getElementById('previewDimInfo'),
+        previewCanvas: document.getElementById('previewCanvas'),
+        pdfFilename: document.getElementById('pdfFilename'),
+        pageSize: document.getElementById('pageSize'),
+        orientationGroup: document.getElementById('orientationGroup'),
+        marginGroup: document.getElementById('marginGroup'),
+        fitGroup: document.getElementById('fitGroup'),
+        qualityRange: document.getElementById('qualityRange'),
+        qualityLabel: document.getElementById('qualityLabel'),
+        togglePageNumbers: document.getElementById('togglePageNumbers'),
+        toggleGrayscale: document.getElementById('toggleGrayscale'),
+        btnResetSettings: document.getElementById('btnResetSettings'),
+        progressContainer: document.getElementById('progressContainer'),
+        progressText: document.getElementById('progressText'),
+        progressPercent: document.getElementById('progressPercent'),
+        progressBar: document.getElementById('progressBar'),
+        btnConvert: document.getElementById('btnConvert'),
+        btnConvertText: document.getElementById('btnConvertText'),
+        btnRedownload: document.getElementById('btnRedownload'),
+        btnRedownloadText: document.getElementById('btnRedownloadText'),
+        lightboxModal: document.getElementById('lightboxModal'),
+        lightboxTitle: document.getElementById('lightboxTitle'),
+        lightboxMeta: document.getElementById('lightboxMeta'),
+        lightboxImg: document.getElementById('lightboxImg'),
+        btnLightboxRotate: document.getElementById('btnLightboxRotate'),
+        btnLightboxClose: document.getElementById('btnLightboxClose'),
+        confirmModal: document.getElementById('confirmModal'),
+        btnCancelClear: document.getElementById('btnCancelClear'),
+        btnConfirmClear: document.getElementById('btnConfirmClear'),
+        toastContainer: document.getElementById('toastContainer')
+      };
+
+      // Utilities
+      function generateId() {
+        return 'ph_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+      }
+
+      function formatBytes(bytes) {
+        if (!bytes || bytes < 0) return '0 Б';
+        if (bytes < 1024) return bytes + ' Б';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' КБ';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' МБ';
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function showToast(message, type) {
+        const colors = {
+          success: 'bg-emerald-600 text-white',
+          error: 'bg-rose-600 text-white',
+          info: 'bg-slate-800 text-white'
+        };
+        const toast = document.createElement('div');
+        toast.className = 'toast-enter pointer-events-auto px-4 py-3 rounded-xl shadow-lg text-xs sm:text-sm font-medium flex items-center justify-between gap-3 ' + (colors[type] || colors.info);
+        toast.textContent = message;
+        el.toastContainer.appendChild(toast);
+        setTimeout(function () {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+          setTimeout(function () {
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
+          }, 220);
+        }, 3200);
+      }
+
+      function saveSettings() {
+        try {
+          localStorage.setItem('photo_to_pdf_settings_v1', JSON.stringify(state.settings));
+        } catch (e) {
+          // Ignore storage restrictions
+        }
+      }
+
+      function loadSettings() {
+        try {
+          const saved = localStorage.getItem('photo_to_pdf_settings_v1');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            state.settings = Object.assign({}, DEFAULT_SETTINGS, parsed);
+          }
+        } catch (e) {
+          // Ignore storage restrictions
+        }
+      }
+
+      function syncSettingsUI() {
+        const s = state.settings;
+        el.pdfFilename.value = s.filename;
+        el.pageSize.value = s.pageSize;
+        el.qualityRange.value = String(s.quality);
+        el.togglePageNumbers.checked = Boolean(s.pageNumbers);
+        el.toggleGrayscale.checked = Boolean(s.grayscale);
+
+        let qText = 'Сбалансированное';
+        if (s.quality >= 85) qText = 'Высокое';
+        else if (s.quality <= 60) qText = 'Компактное';
+        el.qualityLabel.textContent = s.quality + '% • ' + qText;
+
+        const isAutoPage = s.pageSize === 'auto';
+        el.orientationGroup.classList.toggle('opacity-45', isAutoPage);
+        el.orientationGroup.classList.toggle('pointer-events-none', isAutoPage);
+        el.marginGroup.classList.toggle('opacity-45', isAutoPage);
+        el.marginGroup.classList.toggle('pointer-events-none', isAutoPage);
+        el.fitGroup.classList.toggle('opacity-45', isAutoPage);
+        el.fitGroup.classList.toggle('pointer-events-none', isAutoPage);
+
+        document.querySelectorAll('.orientation-btn').forEach(function (btn) {
+          const active = btn.getAttribute('data-orientation') === s.orientation;
+          btn.className = 'orientation-btn px-2.5 py-2 text-xs font-medium rounded-xl border transition-colors ' +
+            (active ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50');
+        });
+
+        document.querySelectorAll('.margin-btn').forEach(function (btn) {
+          const active = Number(btn.getAttribute('data-margin')) === Number(s.margin);
+          btn.className = 'margin-btn px-2.5 py-2 text-xs font-medium rounded-xl border transition-colors ' +
+            (active ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50');
+        });
+
+        document.querySelectorAll('.fit-btn').forEach(function (btn) {
+          const active = btn.getAttribute('data-fit') === s.fit;
+          btn.className = 'fit-btn px-2.5 py-2 text-xs font-medium rounded-xl border transition-colors ' +
+            (active ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50');
+        });
+      }
+
+      // Decode image file to metadata + ObjectURL
+      function loadImageFromFile(file) {
+        return new Promise(function (resolve, reject) {
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          img.onload = function () {
+            resolve({
+              id: generateId(),
+              name: file.name || ('photo_' + Date.now() + '.jpg'),
+              size: file.size || 0,
+              width: img.naturalWidth || img.width,
+              height: img.naturalHeight || img.height,
+              url: url,
+              rotation: 0
+            });
+          };
+          img.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error('Не удалось прочитать ' + (file.name || 'файл')));
+          };
+          img.src = url;
+        });
+      }
+
+      async function addFiles(fileList) {
+        const files = Array.from(fileList || []).filter(function (f) {
+          return f && (f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name || ''));
+        });
+
+        if (files.length === 0) {
+          showToast('Выберите файлы изображений (JPG, PNG, WebP, GIF, BMP)', 'error');
+          return;
+        }
+
+        let added = 0;
+        let failed = 0;
+        for (const file of files) {
+          try {
+            const photo = await loadImageFromFile(file);
+            state.photos.push(photo);
+            added++;
+          } catch (err) {
+            failed++;
+          }
+        }
+
+        if (added > 0) {
+          invalidateLastPdf();
+          if (state.selectedIndex >= state.photos.length) {
+            state.selectedIndex = state.photos.length - 1;
+          }
+          renderAll();
+          showToast('Добавлено фото: ' + added + (failed ? ' (ошибок: ' + failed + ')' : ''), 'success');
+        } else if (failed > 0) {
+          showToast('Не удалось загрузить выбранные изображения', 'error');
+        }
+      }
+
+      function invalidateLastPdf() {
+        if (state.lastPdfBlobUrl) {
+          URL.revokeObjectURL(state.lastPdfBlobUrl);
+          state.lastPdfBlobUrl = null;
+          state.lastPdfFilename = null;
+        }
+        el.btnRedownload.classList.add('hidden');
+      }
+
+      // Generate 3 realistic sample images on canvas
+      async function loadDemoPhotos() {
+        const specs = [
+          {
+            name: '01_Договор_скан.jpg',
+            w: 1000,
+            h: 1414,
+            draw: function (ctx, w, h) {
+              ctx.fillStyle = '#fdfcf9';
+              ctx.fillRect(0, 0, w, h);
+              ctx.strokeStyle = '#cbd5e1';
+              ctx.lineWidth = 4;
+              ctx.strokeRect(48, 48, w - 96, h - 96);
+
+              ctx.fillStyle = '#1e293b';
+              ctx.font = 'bold 42px Inter, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('АКТ ПРИЁМА-ПЕРЕДАЧИ № 24', w / 2, 160);
+
+              ctx.fillStyle = '#64748b';
+              ctx.font = '24px Inter, sans-serif';
+              ctx.fillText('г. Москва • Демонстрационный документ', w / 2, 210);
+
+              ctx.textAlign = 'left';
+              ctx.fillStyle = '#334155';
+              ctx.font = '24px Inter, sans-serif';
+              const lines = [
+                'Настоящий документ сформирован для демонстрации',
+                'конвертации фотографий и сканов в многостраничный PDF.',
+                '',
+                'Вы можете:',
+                '• Менять порядок страниц перетаскиванием',
+                '• Поворачивать изображения на 90 градусов',
+                '• Включать чёрно-белый режим скана',
+                '• Выбирать формат A4, A5, Letter или по размеру фото'
+              ];
+              let y = 310;
+              lines.forEach(function (line) {
+                ctx.fillText(line, 110, y);
+                y += 46;
+              });
+
+              // Table mockup
+              ctx.fillStyle = '#eef2ff';
+              ctx.fillRect(110, 740, w - 220, 62);
+              ctx.strokeStyle = '#94a3b8';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(110, 740, w - 220, 260);
+              ctx.fillStyle = '#1e293b';
+              ctx.font = 'bold 22px Inter, sans-serif';
+              ctx.fillText('Наименование', 135, 780);
+              ctx.fillText('Кол-во', 620, 780);
+              ctx.fillText('Статус', 760, 780);
+
+              ctx.font = '22px Inter, sans-serif';
+              const rows = [
+                ['Комплект документации', '1 шт.', 'Готово'],
+                ['Фотографии объекта', '3 шт.', 'Проверено'],
+                ['Итоговый PDF-файл', '1 шт.', 'К отправке']
+              ];
+              rows.forEach(function (row, idx) {
+                const ry = 845 + idx * 62;
+                ctx.beginPath();
+                ctx.moveTo(110, ry - 40);
+                ctx.lineTo(w - 110, ry - 40);
+                ctx.stroke();
+                ctx.fillStyle = '#334155';
+                ctx.fillText(row[0], 135, ry);
+                ctx.fillText(row[1], 620, ry);
+                ctx.fillStyle = '#059669';
+                ctx.fillText(row[2], 760, ry);
+              });
+
+              // Stamp
+              ctx.save();
+              ctx.translate(720, 1180);
+              ctx.rotate(-0.14);
+              ctx.strokeStyle = '#4f46e5';
+              ctx.lineWidth = 5;
+              ctx.beginPath();
+              ctx.arc(0, 0, 82, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.fillStyle = '#4f46e5';
+              ctx.font = 'bold 20px Inter, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText('ПРОВЕРЕНО', 0, 6);
+              ctx.restore();
+            }
+          },
+          {
+            name: '02_Чек_оплаты.jpg',
+            w: 900,
+            h: 1200,
+            draw: function (ctx, w, h) {
+              ctx.fillStyle = '#f1f5f9';
+              ctx.fillRect(0, 0, w, h);
+              ctx.fillStyle = '#ffffff';
+              ctx.shadowColor = 'rgba(15,23,42,0.12)';
+              ctx.shadowBlur = 24;
+              ctx.fillRect(140, 90, w - 280, h - 180);
+              ctx.shadowBlur = 0;
+
+              ctx.fillStyle = '#0f172a';
+              ctx.textAlign = 'center';
+              ctx.font = 'bold 38px Inter, sans-serif';
+              ctx.fillText('КАССОВЫЙ ЧЕК', w / 2, 190);
+              ctx.fillStyle = '#64748b';
+              ctx.font = '24px monospace';
+              ctx.fillText('--------------------------------', w / 2, 240);
+
+              ctx.textAlign = 'left';
+              ctx.fillStyle = '#1e293b';
+              ctx.font = '24px monospace';
+              const items = [
+                ['Печать чертежей A4', '450.00 ₽'],
+                ['Переплёт на пружину', '180.00 ₽'],
+                ['Папка-файл плотная', '95.00 ₽']
+              ];
+              let y = 330;
+              items.forEach(function (it) {
+                ctx.textAlign = 'left';
+                ctx.fillText(it[0], 195, y);
+                ctx.textAlign = 'right';
+                ctx.fillText(it[1], w - 195, y);
+                y += 68;
+              });
+
+              ctx.textAlign = 'center';
+              ctx.fillStyle = '#64748b';
+              ctx.fillText('--------------------------------', w / 2, 590);
+
+              ctx.fillStyle = '#0f172a';
+              ctx.font = 'bold 34px monospace';
+              ctx.textAlign = 'left';
+              ctx.fillText('ИТОГО:', 195, 670);
+              ctx.textAlign = 'right';
+              ctx.fillText('725.00 ₽', w - 195, 670);
+
+              // QR mockup
+              ctx.fillStyle = '#0f172a';
+              const qx = w / 2 - 90, qy = 770;
+              for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                  if ((r + c) % 2 === 0 || (r < 3 && c < 3) || (r < 3 && c > 5) || (r > 5 && c < 3)) {
+                    ctx.fillRect(qx + c * 20, qy + r * 20, 16, 16);
+                  }
+                }
+              }
+              ctx.textAlign = 'center';
+              ctx.font = '20px Inter, sans-serif';
+              ctx.fillStyle = '#64748b';
+              ctx.fillText('Оплата картой • Успешно', w / 2, 1020);
+            }
+          },
+          {
+            name: '03_Пейзаж_альбомный.jpg',
+            w: 1400,
+            h: 930,
+            draw: function (ctx, w, h) {
+              const sky = ctx.createLinearGradient(0, 0, 0, h * 0.65);
+              sky.addColorStop(0, '#1d4ed8');
+              sky.addColorStop(0.55, '#60a5fa');
+              sky.addColorStop(1, '#fde68a');
+              ctx.fillStyle = sky;
+              ctx.fillRect(0, 0, w, h);
+
+              // Sun
+              ctx.fillStyle = '#fef08a';
+              ctx.beginPath();
+              ctx.arc(1080, 220, 82, 0, Math.PI * 2);
+              ctx.fill();
+
+              // Mountains
+              ctx.fillStyle = '#334155';
+              ctx.beginPath();
+              ctx.moveTo(0, 650);
+              ctx.lineTo(310, 340);
+              ctx.lineTo(620, 580);
+              ctx.lineTo(940, 290);
+              ctx.lineTo(1400, 620);
+              ctx.lineTo(1400, 930);
+              ctx.lineTo(0, 930);
+              ctx.closePath();
+              ctx.fill();
+
+              ctx.fillStyle = '#1e293b';
+              ctx.beginPath();
+              ctx.moveTo(0, 740);
+              ctx.lineTo(440, 490);
+              ctx.lineTo(820, 710);
+              ctx.lineTo(1180, 460);
+              ctx.lineTo(1400, 690);
+              ctx.lineTo(1400, 930);
+              ctx.lineTo(0, 930);
+              ctx.closePath();
+              ctx.fill();
+
+              // Lake
+              const water = ctx.createLinearGradient(0, 680, 0, h);
+              water.addColorStop(0, '#0284c7');
+              water.addColorStop(1, '#0f172a');
+              ctx.fillStyle = water;
+              ctx.fillRect(0, 700, w, h - 700);
+
+              ctx.fillStyle = 'rgba(255,255,255,0.85)';
+              ctx.font = 'bold 34px Inter, sans-serif';
+              ctx.textAlign = 'left';
+              ctx.fillText('Горизонтальное фото (1400 × 930)', 64, 860);
+            }
+          }
+        ];
+
+        const generatedFiles = [];
+        for (const spec of specs) {
+          const canvas = document.createElement('canvas');
+          canvas.width = spec.w;
+          canvas.height = spec.h;
+          const ctx = canvas.getContext('2d');
+          spec.draw(ctx, spec.w, spec.h);
+          const blob = await new Promise(function (res) {
+            canvas.toBlob(res, 'image/jpeg', 0.92);
+          });
+          if (blob) {
+            const file = new File([blob], spec.name, { type: 'image/jpeg' });
+            generatedFiles.push(file);
+          }
+        }
+        await addFiles(generatedFiles);
+      }
+
+      // Compute effective page dimensions in mm for a photo
+      function getPageSpecMm(photo) {
+        const s = state.settings;
+        const rotated = photo.rotation % 180 !== 0;
+        const imgW = rotated ? photo.height : photo.width;
+        const imgH = rotated ? photo.width : photo.height;
+
+        if (s.pageSize === 'auto') {
+          // 96 DPI equivalent in mm, capped reasonably
+          const pxToMm = 25.4 / 96;
+          return {
+            w: Math.max(40, imgW * pxToMm),
+            h: Math.max(40, imgH * pxToMm),
+            margin: 0,
+            fit: 'contain',
+            orientation: imgW >= imgH ? 'landscape' : 'portrait',
+            label: 'По фото (' + imgW + '×' + imgH + ' px)'
+          };
+        }
+
+        const base = PAGE_SIZES_MM[s.pageSize] || PAGE_SIZES_MM.a4;
+        let orient = s.orientation;
+        if (orient === 'auto') {
+          orient = imgW > imgH ? 'landscape' : 'portrait';
+        }
+        const pageW = orient === 'landscape' ? base.h : base.w;
+        const pageH = orient === 'landscape' ? base.w : base.h;
+        return {
+          w: pageW,
+          h: pageH,
+          margin: Number(s.margin) || 0,
+          fit: s.fit,
+          orientation: orient,
+          label: base.label + ' • ' + (orient === 'landscape' ? 'Альбомная' : 'Книжная') + ' (' + Math.round(pageW) + '×' + Math.round(pageH) + ' мм)'
+        };
+      }
+
+      // Render a photo onto an offscreen canvas with rotation, grayscale, and optional cover-crop
+      function renderPhotoToCanvas(photo, targetW, targetH, options) {
+        return new Promise(function (resolve, reject) {
+          const img = new Image();
+          img.onload = function () {
+            const rot = ((photo.rotation % 360) + 360) % 360;
+            const rotated = rot === 90 || rot === 270;
+            const srcW = rotated ? img.naturalHeight : img.naturalWidth;
+            const srcH = rotated ? img.naturalWidth : img.naturalHeight;
+
+            // Step 1: orient & optionally grayscale the source image
+            const oriented = document.createElement('canvas');
+            oriented.width = srcW;
+            oriented.height = srcH;
+            const octx = oriented.getContext('2d');
+            octx.fillStyle = '#ffffff';
+            octx.fillRect(0, 0, srcW, srcH);
+
+            if (options.grayscale) {
+              octx.filter = 'grayscale(100%) contrast(120%)';
+            }
+
+            octx.save();
+            octx.translate(srcW / 2, srcH / 2);
+            octx.rotate((rot * Math.PI) / 180);
+            octx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+            octx.restore();
+
+            // Step 2: compose onto target canvas (full page)
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = targetW;
+            pageCanvas.height = targetH;
+            const ctx = pageCanvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, targetW, targetH);
+
+            const mPx = options.marginPx || 0;
+            const areaX = mPx;
+            const areaY = mPx;
+            const areaW = Math.max(1, targetW - mPx * 2);
+            const areaH = Math.max(1, targetH - mPx * 2 - (options.pageNumberText ? Math.round(targetH * 0.035) : 0));
+
+            if (options.fit === 'cover') {
+              const scale = Math.max(areaW / srcW, areaH / srcH);
+              const drawW = srcW * scale;
+              const drawH = srcH * scale;
+              const dx = areaX + (areaW - drawW) / 2;
+              const dy = areaY + (areaH - drawH) / 2;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(areaX, areaY, areaW, areaH);
+              ctx.clip();
+              ctx.drawImage(oriented, dx, dy, drawW, drawH);
+              ctx.restore();
+            } else {
+              const scale = Math.min(areaW / srcW, areaH / srcH);
+              const drawW = srcW * scale;
+              const drawH = srcH * scale;
+              const dx = areaX + (areaW - drawW) / 2;
+              const dy = areaY + (areaH - drawH) / 2;
+              ctx.drawImage(oriented, dx, dy, drawW, drawH);
+            }
+
+            if (options.pageNumberText) {
+              const fontSize = Math.max(12, Math.round(Math.min(targetW, targetH) * 0.018));
+              ctx.font = '500 ' + fontSize + 'px Inter, sans-serif';
+              ctx.fillStyle = '#64748b';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(options.pageNumberText, targetW / 2, targetH - Math.max(8, Math.round(targetH * 0.014)));
+            }
+
+            resolve(pageCanvas);
+          };
+          img.onerror = function () {
+            reject(new Error('Ошибка отрисовки фото: ' + photo.name));
+          };
+          img.src = photo.url;
+        });
+      }
+
+      // Render Live Preview Canvas
+      async function renderPreview() {
+        if (state.photos.length === 0) return;
+        if (state.selectedIndex >= state.photos.length) state.selectedIndex = state.photos.length - 1;
+        if (state.selectedIndex < 0) state.selectedIndex = 0;
+
+        const photo = state.photos[state.selectedIndex];
+        const spec = getPageSpecMm(photo);
+
+        el.previewPageLabel.textContent = 'Страница ' + (state.selectedIndex + 1) + ' из ' + state.photos.length;
+        el.previewDimInfo.textContent = spec.label;
+        el.btnPrevPreview.disabled = state.selectedIndex === 0;
+        el.btnNextPreview.disabled = state.selectedIndex === state.photos.length - 1;
+
+        const maxPreviewDim = 560;
+        const ratio = spec.w / spec.h;
+        let cw, ch;
+        if (ratio >= 1) {
+          cw = maxPreviewDim;
+          ch = Math.round(maxPreviewDim / ratio);
+        } else {
+          ch = maxPreviewDim;
+          cw = Math.round(maxPreviewDim * ratio);
+        }
+
+        const pxPerMm = cw / spec.w;
+        const marginPx = Math.round(spec.margin * pxPerMm);
+        const pageNumberText = state.settings.pageNumbers
+          ? (state.selectedIndex + 1) + ' / ' + state.photos.length
+          : '';
+
+        try {
+          const rendered = await renderPhotoToCanvas(photo, cw, ch, {
+            marginPx: marginPx,
+            fit: spec.fit,
+            grayscale: state.settings.grayscale,
+            pageNumberText: pageNumberText
+          });
+          el.previewCanvas.width = cw;
+          el.previewCanvas.height = ch;
+          const pctx = el.previewCanvas.getContext('2d');
+          pctx.drawImage(rendered, 0, 0);
+        } catch (err) {
+          // Ignore transient preview errors
+        }
+      }
+
+      // Render Photo Grid
+      function renderGrid() {
+        el.photoGrid.innerHTML = '';
+        state.photos.forEach(function (photo, index) {
+          const card = document.createElement('div');
+          card.className = 'photo-card group relative bg-white border rounded-xl overflow-hidden flex flex-col ' +
+            (index === state.selectedIndex ? 'selected-card' : 'border-slate-200 hover:border-slate-300');
+          card.setAttribute('draggable', 'true');
+          card.setAttribute('data-id', photo.id);
+          card.setAttribute('data-index', String(index));
+
+          const filterClass = state.settings.grayscale ? 'grayscale contrast-125' : '';
+          card.innerHTML =
+            '<div class="relative aspect-[4/3] bg-slate-100 overflow-hidden flex items-center justify-center cursor-pointer" data-action="view">' +
+              '<img src="' + photo.url + '" alt="' + escapeHtml(photo.name) + '" class="max-w-full max-h-full object-contain transition-transform duration-200 ' + filterClass + '" style="transform: rotate(' + photo.rotation + 'deg);" />' +
+              '<span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/75 text-white text-[11px] font-semibold backdrop-blur-xs">Стр. ' + (index + 1) + '</span>' +
+              '<button type="button" data-action="remove" title="Удалить" class="absolute top-2 right-2 w-7 h-7 rounded-lg bg-white/90 hover:bg-rose-600 text-slate-600 hover:text-white flex items-center justify-center shadow-sm transition-colors">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>' +
+              '</button>' +
+            '</div>' +
+            '<div class="p-2.5 flex flex-col gap-2 bg-white">' +
+              '<div class="min-w-0">' +
+                '<p class="text-xs font-medium text-slate-800 truncate" title="' + escapeHtml(photo.name) + '">' + escapeHtml(photo.name) + '</p>' +
+                '<p class="text-[11px] text-slate-400">' + photo.width + '×' + photo.height + ' • ' + formatBytes(photo.size) + '</p>' +
+              '</div>' +
+              '<div class="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">' +
+                '<div class="flex items-center gap-1">' +
+                  '<button type="button" data-action="move-prev" ' + (index === 0 ? 'disabled' : '') + ' title="Переместить раньше" class="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors">' +
+                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>' +
+                  '</button>' +
+                  '<button type="button" data-action="move-next" ' + (index === state.photos.length - 1 ? 'disabled' : '') + ' title="Переместить позже" class="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-colors">' +
+                    '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>' +
+                  '</button>' +
+                '</div>' +
+                '<button type="button" data-action="rotate" title="Повернуть на 90°" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">' +
+                  '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>' +
+                  '<span>90°</span>' +
+                '</button>' +
+              '</div>' +
+            '</div>';
+
+          // Drag-and-drop reordering handlers
+          card.addEventListener('dragstart', function (e) {
+            state.draggedId = photo.id;
+            card.classList.add('dragging');
+            if (e.dataTransfer) {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', photo.id);
+            }
+          });
+
+          card.addEventListener('dragend', function () {
+            state.draggedId = null;
+            card.classList.remove('dragging');
+            document.querySelectorAll('.photo-card.drag-over').forEach(function (c) {
+              c.classList.remove('drag-over');
+            });
+          });
+
+          card.addEventListener('dragover', function (e) {
+            if (!state.draggedId || state.draggedId === photo.id) return;
+            e.preventDefault();
+            card.classList.add('drag-over');
+          });
+
+          card.addEventListener('dragleave', function () {
+            card.classList.remove('drag-over');
+          });
+
+          card.addEventListener('drop', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            card.classList.remove('drag-over');
+            if (!state.draggedId || state.draggedId === photo.id) return;
+            const fromIdx = state.photos.findIndex(function (p) { return p.id === state.draggedId; });
+            const toIdx = state.photos.findIndex(function (p) { return p.id === photo.id; });
+            if (fromIdx !== -1 && toIdx !== -1) {
+              const moved = state.photos.splice(fromIdx, 1)[0];
+              state.photos.splice(toIdx, 0, moved);
+              state.selectedIndex = toIdx;
+              invalidateLastPdf();
+              renderAll();
+            }
+          });
+
+          el.photoGrid.appendChild(card);
+        });
+      }
+
+      function renderAll() {
+        const count = state.photos.length;
+        const hasPhotos = count > 0;
+
+        el.workspaceSection.classList.toggle('hidden', !hasPhotos);
+        el.emptyHint.classList.toggle('hidden', hasPhotos);
+        el.btnConvert.disabled = !hasPhotos || state.isConverting;
+
+        el.photoCountBadge.textContent = String(count);
+        const totalBytes = state.photos.reduce(function (acc, p) { return acc + (p.size || 0); }, 0);
+        el.totalSizeBadge.textContent = hasPhotos ? '(' + formatBytes(totalBytes) + ')' : '';
+
+        if (state.activeTab === 'grid') {
+          el.tabGrid.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-white text-slate-900 shadow-sm transition-all';
+          el.tabPreview.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all';
+          el.gridView.classList.remove('hidden');
+          el.previewView.classList.add('hidden');
+          if (hasPhotos) renderGrid();
+        } else {
+          el.tabPreview.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-white text-slate-900 shadow-sm transition-all';
+          el.tabGrid.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all';
+          el.previewView.classList.remove('hidden');
+          el.gridView.classList.add('hidden');
+          if (hasPhotos) renderPreview();
+        }
+      }
+
+      // Pure-JS PDF 1.4 binary builder (fallback if jsPDF CDN is unavailable)
+      function buildPdfFallback(pages) {
+        // Each page: { jpegBytes: Uint8Array, imgW: number, imgH: number, pageWpt: number, pageHpt: number }
+        const encoder = new TextEncoder();
+        const chunks = [];
+        let offset = 0;
+        const xrefOffsets = [0];
+
+        function pushStr(str) {
+          const b = encoder.encode(str);
+          chunks.push(b);
+          offset += b.length;
+        }
+        function pushBytes(u8) {
+          chunks.push(u8);
+          offset += u8.length;
+        }
+        function startObj(id) {
+          xrefOffsets[id] = offset;
+          pushStr(id + ' 0 obj\n');
+        }
+
+        pushStr('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+
+        // Obj 1: Catalog, Obj 2: Pages
+        const pageObjIds = [];
+        let nextId = 3;
+        const pageMeta = pages.map(function (p) {
+          const imgId = nextId++;
+          const contentId = nextId++;
+          const pageId = nextId++;
+          pageObjIds.push(pageId);
+          return Object.assign({}, p, { imgId: imgId, contentId: contentId, pageId: pageId });
+        });
+
+        startObj(1);
+        pushStr('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+        startObj(2);
+        pushStr('<< /Type /Pages /Kids [' + pageObjIds.map(function (id) { return id + ' 0 R'; }).join(' ') + '] /Count ' + pageObjIds.length + ' >>\nendobj\n');
+
+        pageMeta.forEach(function (pm) {
+          // Image XObject
+          startObj(pm.imgId);
+          pushStr(
+            '<< /Type /XObject /Subtype /Image /Width ' + pm.imgW + ' /Height ' + pm.imgH +
+            ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + pm.jpegBytes.length + ' >>\nstream\n'
+          );
+          pushBytes(pm.jpegBytes);
+          pushStr('\nendstream\nendobj\n');
+
+          // Content stream
+          const streamStr = 'q\n' + pm.pageWpt.toFixed(2) + ' 0 0 ' + pm.pageHpt.toFixed(2) + ' 0 0 cm\n/Im0 Do\nQ\n';
+          startObj(pm.contentId);
+          pushStr('<< /Length ' + streamStr.length + ' >>\nstream\n' + streamStr + 'endstream\nendobj\n');
+
+          // Page object
+          startObj(pm.pageId);
+          pushStr(
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pm.pageWpt.toFixed(2) + ' ' + pm.pageHpt.toFixed(2) + ']' +
+            ' /Resources << /XObject << /Im0 ' + pm.imgId + ' 0 R >> >> /Contents ' + pm.contentId + ' 0 R >>\nendobj\n'
+          );
+        });
+
+        const xrefPos = offset;
+        const totalObjs = nextId;
+        pushStr('xref\n0 ' + totalObjs + '\n0000000000 65535 f \n');
+        for (let i = 1; i < totalObjs; i++) {
+          pushStr(String(xrefOffsets[i]).padStart(10, '0') + ' 00000 n \n');
+        }
+        pushStr('trailer\n<< /Size ' + totalObjs + ' /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF');
+
+        return new Blob(chunks, { type: 'application/pdf' });
+      }
+
+      function dataUrlToUint8Array(dataUrl) {
+        const base64 = dataUrl.split(',')[1];
+        const bin = atob(base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) {
+          bytes[i] = bin.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function triggerDownload(blobUrl, filename) {
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      // Convert all photos to PDF
+      async function convertToPdf() {
+        if (state.photos.length === 0 || state.isConverting) return;
+
+        state.isConverting = true;
+        el.btnConvert.disabled = true;
+        el.btnConvertText.textContent = 'Создание PDF...';
+        el.progressContainer.classList.remove('hidden');
+        el.progressBar.style.width = '0%';
+        el.progressPercent.textContent = '0%';
+
+        try {
+          const quality = Math.max(0.4, Math.min(1, Number(state.settings.quality) / 100));
+          const rawName = (el.pdfFilename.value || 'document').trim().replace(/[\\/:*?"<>|]+/g, '_');
+          const finalFilename = (rawName || 'document').replace(/\.pdf$/i, '') + '.pdf';
+
+          // High resolution target (~150-200 DPI for crisp print without huge memory)
+          const pxPerMmTarget = quality >= 0.85 ? 7.5 : (quality >= 0.65 ? 6.0 : 4.8);
+          const hasJsPdf = Boolean(window.jspdf && window.jspdf.jsPDF);
+          let doc = null;
+          const fallbackPages = [];
+
+          for (let i = 0; i < state.photos.length; i++) {
+            const photo = state.photos[i];
+            const spec = getPageSpecMm(photo);
+
+            const pct = Math.round(((i + 0.3) / state.photos.length) * 100);
+            el.progressText.textContent = 'Страница ' + (i + 1) + ' из ' + state.photos.length + '...';
+            el.progressBar.style.width = pct + '%';
+            el.progressPercent.textContent = pct + '%';
+
+            // Yield to browser so UI updates smoothly
+            await new Promise(function (r) { setTimeout(r, 10); });
+
+            // Compute canvas pixel dimensions (cap max dimension at 2400px to stay fast)
+            let canvasW = Math.round(spec.w * pxPerMmTarget);
+            let canvasH = Math.round(spec.h * pxPerMmTarget);
+            const maxDim = 2400;
+            if (Math.max(canvasW, canvasH) > maxDim) {
+              const scale = maxDim / Math.max(canvasW, canvasH);
+              canvasW = Math.round(canvasW * scale);
+              canvasH = Math.round(canvasH * scale);
+            }
+
+            const marginPx = Math.round(spec.margin * (canvasW / spec.w));
+            const pageNumberText = state.settings.pageNumbers ? (i + 1) + ' / ' + state.photos.length : '';
+
+            const pageCanvas = await renderPhotoToCanvas(photo, canvasW, canvasH, {
+              marginPx: marginPx,
+              fit: spec.fit,
+              grayscale: state.settings.grayscale,
+              pageNumberText: pageNumberText
+            });
+
+            const jpegDataUrl = pageCanvas.toDataURL('image/jpeg', quality);
+
+            if (hasJsPdf) {
+              const orientationChar = spec.w >= spec.h ? 'l' : 'p';
+              if (i === 0) {
+                doc = new window.jspdf.jsPDF({
+                  orientation: orientationChar,
+                  unit: 'mm',
+                  format: [spec.w, spec.h],
+                  compress: true
+                });
+              } else {
+                doc.addPage([spec.w, spec.h], orientationChar);
+              }
+              doc.addImage(jpegDataUrl, 'JPEG', 0, 0, spec.w, spec.h, undefined, 'FAST');
+            } else {
+              const mmToPt = 72 / 25.4;
+              fallbackPages.push({
+                jpegBytes: dataUrlToUint8Array(jpegDataUrl),
+                imgW: canvasW,
+                imgH: canvasH,
+                pageWpt: spec.w * mmToPt,
+                pageHpt: spec.h * mmToPt
+              });
+            }
+
+            const donePct = Math.round(((i + 1) / state.photos.length) * 100);
+            el.progressBar.style.width = donePct + '%';
+            el.progressPercent.textContent = donePct + '%';
+          }
+
+          el.progressText.textContent = 'Сборка PDF-файла...';
+          const pdfBlob = hasJsPdf ? doc.output('blob') : buildPdfFallback(fallbackPages);
+
+          invalidateLastPdf();
+          state.lastPdfBlobUrl = URL.createObjectURL(pdfBlob);
+          state.lastPdfFilename = finalFilename;
+
+          triggerDownload(state.lastPdfBlobUrl, finalFilename);
+
+          el.btnRedownloadText.textContent = 'Скачать ' + finalFilename + ' (' + formatBytes(pdfBlob.size) + ')';
+          el.btnRedownload.classList.remove('hidden');
+
+          showToast('PDF готов: ' + state.photos.length + ' стр., ' + formatBytes(pdfBlob.size), 'success');
+        } catch (err) {
+          showToast('Ошибка при создании PDF: ' + (err && err.message ? err.message : 'неизвестная ошибка'), 'error');
+        } finally {
+          state.isConverting = false;
+          el.btnConvert.disabled = state.photos.length === 0;
+          el.btnConvertText.textContent = 'Создать и скачать PDF';
+          setTimeout(function () {
+            el.progressContainer.classList.add('hidden');
+          }, 900);
+        }
+      }
+
+      // Lightbox controls
+      function openLightbox(photoId) {
+        const photo = state.photos.find(function (p) { return p.id === photoId; });
+        if (!photo) return;
+        state.lightboxId = photoId;
+        el.lightboxTitle.textContent = photo.name;
+        el.lightboxMeta.textContent = photo.width + ' × ' + photo.height + ' px • ' + formatBytes(photo.size) + ' • Поворот: ' + photo.rotation + '°';
+        el.lightboxImg.src = photo.url;
+        el.lightboxImg.style.transform = 'rotate(' + photo.rotation + 'deg)';
+        el.lightboxImg.className = 'max-w-full max-h-[68vh] object-contain rounded shadow-sm transition-transform duration-200 ' + (state.settings.grayscale ? 'grayscale contrast-125' : '');
+        el.lightboxModal.classList.remove('hidden');
+      }
+
+      function closeLightbox() {
+        state.lightboxId = null;
+        el.lightboxModal.classList.add('hidden');
+      }
+
+      // Event Listeners
+      el.btnHeaderAdd.addEventListener('click', function () { el.fileInput.click(); });
+      el.dropzone.addEventListener('click', function () { el.fileInput.click(); });
+      el.dropzone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          el.fileInput.click();
+        }
+      });
+
+      el.fileInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files.length > 0) {
+          addFiles(e.target.files);
+          e.target.value = '';
+        }
+      });
+
+      // Drag and drop files into dropzone
+      ['dragenter', 'dragover'].forEach(function (evName) {
+        el.dropzone.addEventListener(evName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!state.draggedId) el.dropzone.classList.add('dropzone-active');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(function (evName) {
+        el.dropzone.addEventListener(evName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          el.dropzone.classList.remove('dropzone-active');
+        });
+      });
+
+      el.dropzone.addEventListener('drop', function (e) {
+        if (!state.draggedId && e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          addFiles(e.dataTransfer.files);
+        }
+      });
+
+      // Paste from clipboard
+      document.addEventListener('paste', function (e) {
+        if (!e.clipboardData || !e.clipboardData.items) return;
+        const pastedFiles = [];
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const f = item.getAsFile();
+            if (f) pastedFiles.push(f);
+          }
+        }
+        if (pastedFiles.length > 0) {
+          addFiles(pastedFiles);
+        }
+      });
+
+      // Demo buttons
+      el.btnLoadDemo.addEventListener('click', loadDemoPhotos);
+      el.btnLoadDemoInline.addEventListener('click', loadDemoPhotos);
+
+      // Grid event delegation
+      el.photoGrid.addEventListener('click', function (e) {
+        const card = e.target.closest('.photo-card');
+        if (!card) return;
+        const id = card.getAttribute('data-id');
+        const idx = state.photos.findIndex(function (p) { return p.id === id; });
+        if (idx === -1) return;
+
+        const actionEl = e.target.closest('[data-action]');
+        const action = actionEl ? actionEl.getAttribute('data-action') : null;
+
+        if (action === 'remove') {
+          const removed = state.photos.splice(idx, 1)[0];
+          URL.revokeObjectURL(removed.url);
+          if (state.selectedIndex >= state.photos.length) {
+            state.selectedIndex = Math.max(0, state.photos.length - 1);
+          }
+          invalidateLastPdf();
+          renderAll();
+          return;
+        }
+
+        if (action === 'rotate') {
+          state.photos[idx].rotation = (state.photos[idx].rotation + 90) % 360;
+          state.selectedIndex = idx;
+          invalidateLastPdf();
+          renderAll();
+          return;
+        }
+
+        if (action === 'move-prev' && idx > 0) {
+          const tmp = state.photos[idx - 1];
+          state.photos[idx - 1] = state.photos[idx];
+          state.photos[idx] = tmp;
+          state.selectedIndex = idx - 1;
+          invalidateLastPdf();
+          renderAll();
+          return;
+        }
+
+        if (action === 'move-next' && idx < state.photos.length - 1) {
+          const tmp = state.photos[idx + 1];
+          state.photos[idx + 1] = state.photos[idx];
+          state.photos[idx] = tmp;
+          state.selectedIndex = idx + 1;
+          invalidateLastPdf();
+          renderAll();
+          return;
+        }
+
+        if (action === 'view') {
+          state.selectedIndex = idx;
+          openLightbox(id);
+          renderAll();
+        }
+      });
+
+      // Tabs
+      el.tabGrid.addEventListener('click', function () {
+        state.activeTab = 'grid';
+        renderAll();
+      });
+      el.tabPreview.addEventListener('click', function () {
+        state.activeTab = 'preview';
+        renderAll();
+      });
+
+      // Preview pagination
+      el.btnPrevPreview.addEventListener('click', function () {
+        if (state.selectedIndex > 0) {
+          state.selectedIndex--;
+          renderPreview();
+        }
+      });
+      el.btnNextPreview.addEventListener('click', function () {
+        if (state.selectedIndex < state.photos.length - 1) {
+          state.selectedIndex++;
+          renderPreview();
+        }
+      });
+
+      // Toolbar actions
+      el.btnSortAsc.addEventListener('click', function () {
+        state.photos.sort(function (a, b) {
+          return a.name.localeCompare(b.name, 'ru', { numeric: true });
+        });
+        invalidateLastPdf();
+        renderAll();
+        showToast('Отсортировано по имени (А → Я)', 'info');
+      });
+
+      el.btnReverseOrder.addEventListener('click', function () {
+        state.photos.reverse();
+        invalidateLastPdf();
+        renderAll();
+        showToast('Порядок страниц изменён на обратный', 'info');
+      });
+
+      el.btnRotateAll.addEventListener('click', function () {
+        state.photos.forEach(function (p) { p.rotation = (p.rotation + 90) % 360; });
+        invalidateLastPdf();
+        renderAll();
+        showToast('Все фото повёрнуты на 90°', 'info');
+      });
+
+      el.btnClearAll.addEventListener('click', function () {
+        el.confirmModal.classList.remove('hidden');
+      });
+      el.btnCancelClear.addEventListener('click', function () {
+        el.confirmModal.classList.add('hidden');
+      });
+      el.btnConfirmClear.addEventListener('click', function () {
+        state.photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
+        state.photos = [];
+        state.selectedIndex = 0;
+        invalidateLastPdf();
+        el.confirmModal.classList.add('hidden');
+        renderAll();
+        showToast('Список фотографий очищен', 'info');
+      });
+
+      // Settings listeners
+      el.pdfFilename.addEventListener('input', function () {
+        state.settings.filename = el.pdfFilename.value;
+        saveSettings();
+      });
+
+      el.pageSize.addEventListener('change', function () {
+        state.settings.pageSize = el.pageSize.value;
+        saveSettings();
+        syncSettingsUI();
+        invalidateLastPdf();
+        if (state.activeTab === 'preview') renderPreview();
+      });
+
+      document.querySelectorAll('.orientation-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.settings.orientation = btn.getAttribute('data-orientation');
+          saveSettings();
+          syncSettingsUI();
+          invalidateLastPdf();
+          if (state.activeTab === 'preview') renderPreview();
+        });
+      });
+
+      document.querySelectorAll('.margin-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.settings.margin = Number(btn.getAttribute('data-margin'));
+          saveSettings();
+          syncSettingsUI();
+          invalidateLastPdf();
+          if (state.activeTab === 'preview') renderPreview();
+        });
+      });
+
+      document.querySelectorAll('.fit-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          state.settings.fit = btn.getAttribute('data-fit');
+          saveSettings();
+          syncSettingsUI();
+          invalidateLastPdf();
+          if (state.activeTab === 'preview') renderPreview();
+        });
+      });
+
+      el.qualityRange.addEventListener('input', function () {
+        state.settings.quality = Number(el.qualityRange.value);
+        saveSettings();
+        syncSettingsUI();
+        invalidateLastPdf();
+      });
+
+      el.togglePageNumbers.addEventListener('change', function () {
+        state.settings.pageNumbers = el.togglePageNumbers.checked;
+        saveSettings();
+        invalidateLastPdf();
+        if (state.activeTab === 'preview') renderPreview();
+      });
+
+      el.toggleGrayscale.addEventListener('change', function () {
+        state.settings.grayscale = el.toggleGrayscale.checked;
+        saveSettings();
+        invalidateLastPdf();
+        renderAll();
+      });
+
+      el.btnResetSettings.addEventListener('click', function () {
+        state.settings = Object.assign({}, DEFAULT_SETTINGS);
+        saveSettings();
+        syncSettingsUI();
+        invalidateLastPdf();
+        renderAll();
+        showToast('Настройки сброшены по умолчанию', 'info');
+      });
+
+      // Convert & Redownload
+      el.btnConvert.addEventListener('click', convertToPdf);
+      el.btnRedownload.addEventListener('click', function () {
+        if (state.lastPdfBlobUrl && state.lastPdfFilename) {
+          triggerDownload(state.lastPdfBlobUrl, state.lastPdfFilename);
+        }
+      });
+
+      // Lightbox events
+      el.btnLightboxClose.addEventListener('click', closeLightbox);
+      el.lightboxModal.addEventListener('click', function (e) {
+        if (e.target === el.lightboxModal) closeLightbox();
+      });
+      el.btnLightboxRotate.addEventListener('click', function () {
+        const photo = state.photos.find(function (p) { return p.id === state.lightboxId; });
+        if (!photo) return;
+        photo.rotation = (photo.rotation + 90) % 360;
+        invalidateLastPdf();
+        openLightbox(photo.id);
+        renderAll();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          if (!el.lightboxModal.classList.contains('hidden')) closeLightbox();
+          if (!el.confirmModal.classList.contains('hidden')) el.confirmModal.classList.add('hidden');
+        }
+      });
+
+      // Init
+      loadSettings();
+      syncSettingsUI();
+      renderAll();
+    })();
+  </script>
+</body>
+</html>
